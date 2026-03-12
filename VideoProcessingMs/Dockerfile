@@ -14,6 +14,11 @@ WORKDIR /src
 
 # Copia solution e projetos primeiro (melhor cache)
 COPY *.sln ./
+COPY Core/*.csproj ./Core/
+COPY Infra.Data.SqlServer/*.csproj ./Infra.Data.SqlServer/
+COPY Infra.Messaging/*.csproj ./Infra.Messaging/
+COPY Infra.ObjectStorageService/*.csproj ./Infra.ObjectStorageService/
+COPY Test/*.csproj ./Test/
 COPY VideoProcessorWorker/*.csproj ./VideoProcessorWorker/
 
 # Restore dependências
