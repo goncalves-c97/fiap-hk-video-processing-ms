@@ -1,15 +1,29 @@
-﻿using Core.Interfaces;
-using System.Diagnostics;
+using Core.Interfaces;
 using System.IO.Compression;
 
 namespace Core.Helpers
 {
     public class FfmpegFrameExtractor : IFrameExtractor
     {
-        public async Task<Stream> ExtractFramesAsync(Stream videoStream, Guid videoGuid, int framesPerSecond)
+        private const string FfmpegExecutablePath = @"C:\ffmpeg\bin\ffmpeg.exe";
+        private readonly IFfmpegProcessRunner _processRunner;
+        private readonly IFrameExtractionPathProvider _pathProvider;
+
+        public FfmpegFrameExtractor()
+            : this(new ProcessFfmpegRunner(), new DefaultFrameExtractionPathProvider())
         {
-            var tempVideoPath = Path.Combine(Path.GetTempPath(), $"{videoGuid}.mp4");
-            var framesDir = Path.Combine(Path.GetTempPath(), videoGuid.ToString());
+        }
+
+        public FfmpegFrameExtractor(IFfmpegProcessRunner processRunner, IFrameExtractionPathProvider pathProvider)
+        {
+            _processRunner = processRunner;
+            _pathProvider = pathProvider;
+        }
+
+        public async Task<Stream> ExtractFramesAsync(Stream videoStream, Guid videoGuid, int fps)
+        {
+            var tempVideoPath = _pathProvider.GetTempVideoPath(videoGuid);
+            var framesDir = _pathProvider.GetFramesDirectory(videoGuid);
 
             Directory.CreateDirectory(framesDir);
 
@@ -18,30 +32,15 @@ namespace Core.Helpers
                 await videoStream.CopyToAsync(file);
             }
 
-            var process = new Process
+            var arguments = $"-i \"{tempVideoPath}\" -vf fps={fps} \"{framesDir}/frame_%04d.png\"";
+            var result = await _processRunner.ExecuteAsync(FfmpegExecutablePath, arguments);
+
+            if (result.ExitCode != 0)
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = @"C:\ffmpeg\bin\ffmpeg.exe", // ffmpeg path TODO: When deploying, ensure ffmpeg is included in the deployment package and update this path accordingly
-                    Arguments = $"-i \"{tempVideoPath}\" -vf fps={framesPerSecond} \"{framesDir}/frame_%04d.png\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false
-                }
-            };
-
-            process.Start();
-
-            string error = await process.StandardError.ReadToEndAsync();
-
-            await process.WaitForExitAsync();
-
-            if (process.ExitCode != 0)
-            {
-                throw new Exception($"FFmpeg error: {error}");
+                throw new InvalidOperationException($"FFmpeg error: {result.ErrorOutput}");
             }
 
-            var zipPath = Path.Combine(Path.GetTempPath(), $"{videoGuid}.zip");
+            var zipPath = _pathProvider.GetZipPath(videoGuid);
 
             ZipFile.CreateFromDirectory(framesDir, zipPath);
 
