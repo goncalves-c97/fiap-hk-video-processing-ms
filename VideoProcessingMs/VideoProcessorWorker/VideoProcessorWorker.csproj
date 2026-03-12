@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-VideoProcessorWorker-ee76f27a-2cf6-44cd-97fb-ca71afc687c5</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.18" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore.SwaggerGen" Version="6.6.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Core.csproj" />
+    <ProjectReference Include="..\Infra.Data.SqlServer\Infra.Data.SqlServer.csproj" />
+    <ProjectReference Include="..\Infra.Messaging\Infra.Messaging.csproj" />
+    <ProjectReference Include="..\Infra.ObjectStorageService\Infra.ObjectStorageService.csproj" />
+  </ItemGroup>
+</Project>

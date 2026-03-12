@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: video-processing-ms-config
+  namespace: video-processing-ms
+data:
+  ASPNETCORE_URLS: "http://+:5000"
+  ASPNETCORE_ENVIRONMENT: "Development"
+  
+
+

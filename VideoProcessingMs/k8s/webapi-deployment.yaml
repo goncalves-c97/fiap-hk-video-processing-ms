@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-processing-ms-webapi-deployment
+  namespace: video-processing-ms
+  labels:
+    app: video-processing-ms-webapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: video-processing-ms-webapi
+  template:
+    metadata:
+      labels:
+        app: video-processing-ms-webapi
+    spec:
+      containers:
+      - name: video-processing-ms-webapi
+        image: goncalvesc97/fiap-hk-video-processing-ms:1.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        env:
+        - name: ASPNETCORE_URLS
+          value: "http://+:5000"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+
+        # Configuração do ambiente de banco de dados 
+        - name: DB_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: video-processing-ms-secret
+              key: DB_CONNECTION_STRING
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: video-processing-ms-secret
+              key: DB_NAME
+
+        # Configuração da chave de autenticação da API
+        - name: API_AUTHENTICATION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: video-processing-ms-secret
+              key: API_AUTH_TOKEN
