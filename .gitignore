@@ -437,14 +437,14 @@ FodyWeavers.xsd
 # Additional files built by Visual Studio
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio,visualstudiocode,windows
-/VideoUploadMs/WebApi/appsettings.json
-/VideoUploadMs/WebApi/Properties/launchSettings.json
-VideoUploadMs/terraform/.terraform.lock.hcl
-VideoUploadMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/LICENSE.txt
-VideoUploadMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/terraform-provider-aws_v5.100.0_x5.exe
-VideoUploadMs/terraform/.terraform/terraform.tfstate
-VideoUploadMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/LICENSE.txt
-VideoUploadMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/terraform-provider-aws_v5.100.0_x5.exe
-VideoUploadMs/terraform/.terraform/terraform.tfstate
-/VideoUploadMs/WebApi/Properties/launchSettings.json
-/VideoUploadMs/k8s/secret.yaml
+/VideoProcessingMs/WebApi/appsettings.json
+/VideoProcessingMs/WebApi/Properties/launchSettings.json
+VideoProcessingMs/terraform/.terraform.lock.hcl
+VideoProcessingMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/LICENSE.txt
+VideoProcessingMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/terraform-provider-aws_v5.100.0_x5.exe
+VideoProcessingMs/terraform/.terraform/terraform.tfstate
+VideoProcessingMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/LICENSE.txt
+VideoProcessingMs/terraform/.terraform/providers/registry.terraform.io/hashicorp/aws/5.100.0/windows_amd64/terraform-provider-aws_v5.100.0_x5.exe
+VideoProcessingMs/terraform/.terraform/terraform.tfstate
+/VideoProcessingMs/WebApi/Properties/launchSettings.json
+/VideoProcessingMs/k8s/secret.yaml
