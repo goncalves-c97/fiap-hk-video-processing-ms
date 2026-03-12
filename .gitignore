@@ -448,3 +448,4 @@ VideoProcessingMs/terraform/.terraform/providers/registry.terraform.io/hashicorp
 VideoProcessingMs/terraform/.terraform/terraform.tfstate
 /VideoProcessingMs/WebApi/Properties/launchSettings.json
 /VideoProcessingMs/k8s/secret.yaml
+VideoProcessingMs/VideoProcessorWorker/Properties/launchSettings.json
