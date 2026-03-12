@@ -4,84 +4,87 @@ using RabbitMQ.Client.Events;
 using System.Text;
 using System.Text.Json;
 
-public class RabbitMqEventBus : IMessagingService
+namespace Infra.Messaging
 {
-    private readonly IConnection _connection;
-
-    public RabbitMqEventBus(IConnection connection)
+    public class RabbitMqEventBus : IMessagingService
     {
-        _connection = connection;
-    }
+        private readonly IConnection _connection;
 
-    public Task PublishAsync<T>(string routingKey, T message)
-    {
-        using var channel = _connection.CreateModel();
-
-        channel.QueueDeclare(
-            queue: routingKey,
-            durable: true,
-            exclusive: false,
-            autoDelete: false);
-
-        var json = JsonSerializer.Serialize(message);
-        var body = Encoding.UTF8.GetBytes(json);
-
-        var properties = channel.CreateBasicProperties();
-        properties.Persistent = true;
-
-        channel.BasicPublish(
-            exchange: "",
-            routingKey: routingKey,
-            basicProperties: properties,
-            body: body);
-
-        return Task.CompletedTask;
-    }
-
-    public void Subscribe<T>(string queue, Func<T, Task> handler)
-    {
-        var channel = _connection.CreateModel();
-
-        channel.QueueDeclare(
-            queue: queue,
-            durable: true,
-            exclusive: false,
-            autoDelete: false);
-
-        var consumer = new EventingBasicConsumer(channel);
-
-        consumer.Received += async (model, ea) =>
+        public RabbitMqEventBus(IConnection connection)
         {
-            try
+            _connection = connection;
+        }
+
+        public Task PublishAsync<T>(string routingKey, T message)
+        {
+            using var channel = _connection.CreateModel();
+
+            channel.QueueDeclare(
+                queue: routingKey,
+                durable: true,
+                exclusive: false,
+                autoDelete: false);
+
+            var json = JsonSerializer.Serialize(message);
+            var body = Encoding.UTF8.GetBytes(json);
+
+            var properties = channel.CreateBasicProperties();
+            properties.Persistent = true;
+
+            channel.BasicPublish(
+                exchange: "",
+                routingKey: routingKey,
+                basicProperties: properties,
+                body: body);
+
+            return Task.CompletedTask;
+        }
+
+        public void Subscribe<T>(string queue, Func<T, Task> handler)
+        {
+            var channel = _connection.CreateModel();
+
+            channel.QueueDeclare(
+                queue: queue,
+                durable: true,
+                exclusive: false,
+                autoDelete: false);
+
+            var consumer = new EventingBasicConsumer(channel);
+
+            consumer.Received += async (model, ea) =>
             {
-                var body = ea.Body.ToArray();
-                var json = Encoding.UTF8.GetString(body);
-
-                var message = JsonSerializer.Deserialize<T>(json);
-
-                if (message != null)
+                try
                 {
-                    await handler(message);
+                    var body = ea.Body.ToArray();
+                    var json = Encoding.UTF8.GetString(body);
+
+                    var message = JsonSerializer.Deserialize<T>(json);
+
+                    if (message != null)
+                    {
+                        await handler(message);
+                    }
+
+                    channel.BasicAck(
+                        deliveryTag: ea.DeliveryTag,
+                        multiple: false);
                 }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Erro ao processar mensagem: {ex.Message}");
 
-                channel.BasicAck(
-                    deliveryTag: ea.DeliveryTag,
-                    multiple: false);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Erro ao processar mensagem: {ex.Message}");
+                    channel.BasicNack(
+                        deliveryTag: ea.DeliveryTag,
+                        multiple: false,
+                        requeue: true);
+                }
+            };
 
-                channel.BasicNack(
-                    deliveryTag: ea.DeliveryTag,
-                    multiple: false,
-                    requeue: true);
-            }
-        };
-
-        channel.BasicConsume(
-            queue: queue,
-            autoAck: false,
-            consumer: consumer);
+            channel.BasicConsume(
+                queue: queue,
+                autoAck: false,
+                consumer: consumer);
+        }
     }
 }

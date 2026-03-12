@@ -7,6 +7,7 @@ using Core.Interfaces;
 using Core.Interfaces.Gateways;
 using Dapper;
 using Infra.Data.SqlServer;
+using Infra.Messaging;
 using Infra.ObjectStorageService;
 using RabbitMQ.Client;
 using VideoProcessorWorker;

@@ -3,6 +3,7 @@ using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
 using RabbitMQ.Client.Events;
+using Infra.Messaging;
 
 namespace Test.Infra.Messaging;
 
