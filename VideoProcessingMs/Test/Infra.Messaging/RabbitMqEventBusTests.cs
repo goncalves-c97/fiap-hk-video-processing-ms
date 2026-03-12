@@ -1,4 +1,3 @@
-using Infra.Messaging;
 using Moq;
 using RabbitMQ.Client;
 using System.Text;

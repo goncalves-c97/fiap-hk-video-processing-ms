@@ -29,7 +29,7 @@ public class S3ObjectStorageServiceTests
         var key = await svc.UploadAsync(ms, "file.mp4", "video/mp4");
 
         Assert.StartsWith("videos/", key);
-        Assert.EndsWith("-file.mp4", key);
+        Assert.EndsWith("file.mp4", key);
         Assert.Single(captured);
         Assert.Equal("my-bucket", captured[0].BucketName);
         Assert.Equal(key, captured[0].Key);

@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
     <PackageReference Include="xunit" Version="2.5.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
     <PackageReference Include="Moq" Version="4.20.72" />
@@ -20,6 +21,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Core\Core.csproj" />
     <ProjectReference Include="..\Infra.Data.SqlServer\Infra.Data.SqlServer.csproj" />
+    <ProjectReference Include="..\Infra.Messaging\Infra.Messaging.csproj" />
+    <ProjectReference Include="..\Infra.ObjectStorageService\Infra.ObjectStorageService.csproj" />
+    <ProjectReference Include="..\VideoProcessorWorker\VideoProcessorWorker.csproj" />
   </ItemGroup>
 
   <ItemGroup>
