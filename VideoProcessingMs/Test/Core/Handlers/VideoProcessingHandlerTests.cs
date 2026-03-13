@@ -15,6 +15,8 @@ public class VideoProcessingHandlerTests
     {
         var evt = CreateEvent();
         var video = CreateVideoUpload(evt);
+        var expectedZipPath = $"{video.Guid}-processed/{video.Guid}.zip";
+        var expectedZipUrl = $"https://storage.local/{video.Guid}.zip";
         var statusSnapshots = new List<(StatusVideoEnum Status, DateTime? StartedAt, DateTime? FinishedAt, string? ZipPath, string? ErrorMessage, int Attempts)>();
         var gateway = new Mock<IVideoProcessingGateway>(MockBehavior.Strict);
         var storage = new Mock<IObjectStorageService>(MockBehavior.Strict);
@@ -29,13 +31,15 @@ public class VideoProcessingHandlerTests
             .Returns(Task.CompletedTask);
         storage.Setup(x => x.DownloadAsync(evt.StoragePath)).ReturnsAsync(inputStream);
         frameExtractor.Setup(x => x.ExtractFramesAsync(inputStream, video.Guid, 2)).ReturnsAsync(zipStream);
-        storage.Setup(x => x.UploadAsync(zipStream, $"{video.Guid}-processed/{video.Guid}.zip", "application/zip"))
+        storage.Setup(x => x.UploadAsync(zipStream, expectedZipPath, "application/zip"))
             .ReturnsAsync("uploaded");
+        storage.Setup(x => x.GetPresignedUrl(expectedZipPath, 60)).Returns(expectedZipUrl);
 
-        await handler.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object);
+        var zipUrl = await handler.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object);
 
+        Assert.Equal(expectedZipUrl, zipUrl);
         Assert.Equal(StatusVideoEnum.Completed, video.Status);
-        Assert.Equal($"{video.Guid}-processed/{video.Guid}.zip", video.CaminhoZipProcessado);
+        Assert.Equal(expectedZipUrl, video.CaminhoZipProcessado);
         Assert.NotNull(video.DataHoraInicioProcessamento);
         Assert.NotNull(video.DataHoraFimProcessamento);
         Assert.Null(video.MensagemErro);
@@ -53,14 +57,15 @@ public class VideoProcessingHandlerTests
                 Assert.Equal(StatusVideoEnum.Completed, second.Status);
                 Assert.NotNull(second.StartedAt);
                 Assert.NotNull(second.FinishedAt);
-                Assert.Equal($"{video.Guid}-processed/{video.Guid}.zip", second.ZipPath);
+                Assert.Equal(expectedZipUrl, second.ZipPath);
             });
 
         gateway.Verify(x => x.GetByGuid(evt.VideoId, evt.UserId), Times.Once);
         gateway.Verify(x => x.Update(It.IsAny<VideoUpload>()), Times.Exactly(2));
         storage.Verify(x => x.DownloadAsync(evt.StoragePath), Times.Once);
         frameExtractor.Verify(x => x.ExtractFramesAsync(inputStream, video.Guid, 2), Times.Once);
-        storage.Verify(x => x.UploadAsync(zipStream, $"{video.Guid}-processed/{video.Guid}.zip", "application/zip"), Times.Once);
+        storage.Verify(x => x.UploadAsync(zipStream, expectedZipPath, "application/zip"), Times.Once);
+        storage.Verify(x => x.GetPresignedUrl(expectedZipPath, 60), Times.Once);
     }
 
     [Fact]
@@ -137,6 +142,8 @@ public class VideoProcessingHandlerTests
         {
             VideoId = Guid.NewGuid(),
             UserId = 12,
+            UserEmail = "user@example.com",
+            OriginalVideoName = "raw-video.mp4",
             StoragePath = "uploads/raw-video.mp4",
             UploadedAt = DateTime.UtcNow
         };

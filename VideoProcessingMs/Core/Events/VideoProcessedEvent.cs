@@ -1,12 +1,14 @@
-﻿namespace Core.Events
+﻿using System.Data;
+
+namespace Core.Events
 {
-    public class VideoUploadedEvent
+    public class VideoProcessedEvent
     {
         public Guid VideoId { get; init; }
         public int UserId { get; init; }
         public string UserEmail { get; init; }
         public string OriginalVideoName { get; init; }
-        public string StoragePath { get; init; }
-        public DateTime UploadedAt { get; init; }
+        public string ProcessedVideoUrl { get; init; }
+        public DateTime ProcessedAt { get; init; }
     }
 }

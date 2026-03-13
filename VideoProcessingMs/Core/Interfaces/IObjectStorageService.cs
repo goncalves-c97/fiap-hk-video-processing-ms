@@ -10,5 +10,9 @@
         Task<Stream> DownloadAsync(string path);
 
         Task DeleteAsync(string path);
+
+        string GetFileUrl(string path);
+
+        string GetPresignedUrl(string path, int expirationMinutes = 60);
     }
 }

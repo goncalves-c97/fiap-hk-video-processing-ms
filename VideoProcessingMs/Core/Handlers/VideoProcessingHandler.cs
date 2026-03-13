@@ -8,7 +8,7 @@ namespace Core.Handlers
 {
     public class VideoProcessingHandler : IVideoProcessingHandler
     {
-        public async Task HandleAsync(VideoUploadedEvent evt, IVideoProcessingGateway videoProcessingGateway, IObjectStorageService objectStorageService, IFrameExtractor frameExtractor, CancellationToken cancellationToken = default)
+        public async Task<string> HandleAsync(VideoUploadedEvent evt, IVideoProcessingGateway videoProcessingGateway, IObjectStorageService objectStorageService, IFrameExtractor frameExtractor, CancellationToken cancellationToken = default)
         {
             VideoUpload? video = null;
 
@@ -55,16 +55,20 @@ namespace Core.Handlers
                     zipPath,
                     "application/zip");
 
+                string zipUrl = objectStorageService.GetPresignedUrl(zipPath);
+
                 Console.WriteLine("ZIP criado e enviado para o storage. Atualizando status para Completed...");
 
                 // Atualiza status para Completed
                 video.Status = StatusVideoEnum.Completed;
-                video.CaminhoZipProcessado = zipPath;
+                video.CaminhoZipProcessado = zipUrl;
                 video.DataHoraFimProcessamento = DateTime.UtcNow;
 
                 await videoProcessingGateway.Update(video);
 
                 Console.WriteLine($"Processamento do vídeo {evt.VideoId} concluído com sucesso.");
+
+                return zipUrl;
             }
             catch (Exception ex)
             {

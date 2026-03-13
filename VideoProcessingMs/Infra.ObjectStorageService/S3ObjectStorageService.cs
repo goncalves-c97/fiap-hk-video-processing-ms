@@ -9,6 +9,7 @@ namespace Infra.ObjectStorageService
     {
         private readonly IAmazonS3 _s3Client;
         private readonly string _bucket;
+        private readonly string _serviceUrl = "https://s3.amazonaws.com";
 
         public S3ObjectStorageService(
             IAmazonS3 s3Client,
@@ -16,6 +17,7 @@ namespace Infra.ObjectStorageService
         {
             _s3Client = s3Client;
             _bucket = configuration["OBJ_STORAGE:BUCKET_NAME"];
+            _serviceUrl = configuration["OBJ_STORAGE:SERVICE_URL"];
         }
 
         public async Task<string> UploadAsync(
@@ -47,6 +49,24 @@ namespace Infra.ObjectStorageService
         public async Task DeleteAsync(string path)
         {
             await _s3Client.DeleteObjectAsync(_bucket, path);
+        }
+
+        public string GetFileUrl(string path)
+        {
+            return $"{_serviceUrl}/{_bucket}/{path}";
+        }
+
+        public string GetPresignedUrl(string path, int expirationMinutes = 60)
+        {
+            var request = new GetPreSignedUrlRequest
+            {
+                BucketName = _bucket,
+                Key = path,
+                Expires = DateTime.UtcNow.AddMinutes(expirationMinutes),
+                Verb = HttpVerb.GET
+            };
+
+            return _s3Client.GetPreSignedURL(request);
         }
     }
 }
