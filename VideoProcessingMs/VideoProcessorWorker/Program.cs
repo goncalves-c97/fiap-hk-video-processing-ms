@@ -91,12 +91,8 @@ builder.Services.AddSingleton<IFrameExtractor, FfmpegFrameExtractor>();
 
 builder.Configuration.AddEnvironmentVariables();
 
-// -----------------------------
-// Worker
-// -----------------------------
 builder.Services.AddHostedService<VideoProcessingWorker>();
 
-// -----------------------------
 var host = builder.Build();
 
 host.Run();
