@@ -1,4 +1,5 @@
-﻿using System.Data;
+﻿using Core.Enums;
+using System.Data;
 
 namespace Core.Events
 {
@@ -9,6 +10,7 @@ namespace Core.Events
         public string UserEmail { get; init; }
         public string OriginalVideoName { get; init; }
         public string ProcessedVideoUrl { get; init; }
+        public StatusVideoEnum StatusVideoEnum { get; init; }
         public DateTime ProcessedAt { get; init; }
     }
 }

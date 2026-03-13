@@ -1,6 +1,8 @@
-﻿using Core.Entities;
+﻿using Core.Constants;
+using Core.Entities;
 using Core.Enums;
 using Core.Events;
+using Core.Exceptions;
 using Core.Interfaces;
 using Core.Interfaces.Gateways;
 
@@ -21,7 +23,7 @@ namespace Core.Handlers
                 if (video == null)
                 {
                     Console.WriteLine($"Vídeo {evt.VideoId} não encontrado para o usuário {evt.UserId}.");
-                    throw new Exception($"Vídeo {evt.VideoId} não encontrado.");
+                    throw new VideoNotFoundException($"Vídeo {evt.VideoId} não encontrado.");
                 }
 
                 Console.WriteLine($"Vídeo {evt.VideoId} encontrado. Iniciando processamento...");
@@ -70,6 +72,11 @@ namespace Core.Handlers
 
                 return zipUrl;
             }
+            catch (VideoNotFoundException)
+            {
+                Console.WriteLine($"Vídeo {evt.VideoId} não encontrado. Encerrando processamento.");
+                throw;
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"Erro ao processar o vídeo {evt.VideoId}: {ex.Message}");
@@ -80,12 +87,17 @@ namespace Core.Handlers
                     video.MensagemErro = ex.Message;
                     video.TentativasProcessamento++;
 
+                    if (video.TentativasProcessamento >= ConstantValues.MAX_ATTEMPTS)
+                        video.Status = StatusVideoEnum.ErrorAttemptsExceeded;
+
                     await videoProcessingGateway.Update(video);
 
                     Console.WriteLine($"Status atualizado para Error. Tentativas de processamento: {video.TentativasProcessamento}");
-                }
 
-                throw;
+                    throw new VideoProcessingException(ex.Message, video.TentativasProcessamento);
+                }
+                else
+                    throw new VideoProcessingException(ex.Message, -1);
             }
         }
     }

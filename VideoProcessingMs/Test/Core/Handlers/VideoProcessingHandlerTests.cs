@@ -1,6 +1,7 @@
 using Core.Entities;
 using Core.Enums;
 using Core.Events;
+using Core.Exceptions;
 using Core.Handlers;
 using Core.Interfaces;
 using Core.Interfaces.Gateways;
@@ -79,7 +80,7 @@ public class VideoProcessingHandlerTests
 
         gateway.Setup(x => x.GetByGuid(evt.VideoId, evt.UserId)).ReturnsAsync((VideoUpload?)null);
 
-        var exception = await Assert.ThrowsAsync<Exception>(() =>
+        var exception = await Assert.ThrowsAsync<VideoNotFoundException>(() =>
             handler.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object));
 
         Assert.Equal($"Vídeo {evt.VideoId} não encontrado.", exception.Message);
@@ -108,10 +109,11 @@ public class VideoProcessingHandlerTests
         frameExtractor.Setup(x => x.ExtractFramesAsync(inputStream, video.Guid, 2))
             .ThrowsAsync(new InvalidOperationException("zip failure"));
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<VideoProcessingException>(() =>
             handler.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object));
 
         Assert.Equal("zip failure", exception.Message);
+        Assert.Equal(1, exception.Attempts);
         Assert.Equal(StatusVideoEnum.Error, video.Status);
         Assert.Equal("zip failure", video.MensagemErro);
         Assert.Equal(1, video.TentativasProcessamento);
@@ -134,6 +136,35 @@ public class VideoProcessingHandlerTests
 
         gateway.Verify(x => x.Update(It.IsAny<VideoUpload>()), Times.Exactly(2));
         storage.Verify(x => x.UploadAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenAttemptsReachLimit_ShouldMarkVideoAsAttemptsExceeded()
+    {
+        var evt = CreateEvent();
+        var video = CreateVideoUpload(evt);
+        video.TentativasProcessamento = 9;
+
+        var gateway = new Mock<IVideoProcessingGateway>(MockBehavior.Strict);
+        var storage = new Mock<IObjectStorageService>(MockBehavior.Strict);
+        var frameExtractor = new Mock<IFrameExtractor>(MockBehavior.Strict);
+        var inputStream = new MemoryStream(new byte[] { 7, 8, 9 });
+        var handler = new VideoProcessingHandler();
+
+        gateway.Setup(x => x.GetByGuid(evt.VideoId, evt.UserId)).ReturnsAsync(video);
+        gateway.Setup(x => x.Update(It.IsAny<VideoUpload>())).Returns(Task.CompletedTask);
+        storage.Setup(x => x.DownloadAsync(evt.StoragePath)).ReturnsAsync(inputStream);
+        frameExtractor.Setup(x => x.ExtractFramesAsync(inputStream, video.Guid, 2))
+            .ThrowsAsync(new InvalidOperationException("zip failure"));
+
+        var exception = await Assert.ThrowsAsync<VideoProcessingException>(() =>
+            handler.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object));
+
+        Assert.Equal("zip failure", exception.Message);
+        Assert.Equal(10, exception.Attempts);
+        Assert.Equal(StatusVideoEnum.ErrorAttemptsExceeded, video.Status);
+        Assert.Equal(10, video.TentativasProcessamento);
+        gateway.Verify(x => x.Update(It.IsAny<VideoUpload>()), Times.Exactly(2));
     }
 
     private static VideoUploadedEvent CreateEvent()

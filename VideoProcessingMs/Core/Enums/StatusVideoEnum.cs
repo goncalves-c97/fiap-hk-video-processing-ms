@@ -3,8 +3,10 @@
     public enum StatusVideoEnum
     {
         Pending = 0,
-        Processing = 1,
-        Completed = 2,
-        Error = 3
+        Processing,
+        Completed,
+        Error,
+        ErrorAttemptsExceeded,
+        NotFound
     }
 }
