@@ -19,6 +19,8 @@ public class VideoProcessingWorkerTests
         {
             VideoId = Guid.NewGuid(),
             UserId = 77,
+            UserEmail = "worker@example.com",
+            OriginalVideoName = "video.mp4",
             StoragePath = "video.mp4",
             UploadedAt = DateTime.UtcNow
         };
@@ -26,7 +28,16 @@ public class VideoProcessingWorkerTests
         Func<VideoUploadedEvent, Task>? subscriptionHandler = null;
         consumer.Setup(x => x.Subscribe<VideoUploadedEvent>("video-uploaded", It.IsAny<Func<VideoUploadedEvent, Task>>()))
             .Callback<string, Func<VideoUploadedEvent, Task>>((_, callback) => subscriptionHandler = callback);
+
         handler.Setup(x => x.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object, default))
+            .ReturnsAsync("https://storage.local/processed.zip");
+
+        consumer.Setup(x => x.PublishAsync("video-processed", It.Is<VideoProcessedEvent>(message =>
+            message.VideoId == evt.VideoId &&
+            message.UserId == evt.UserId &&
+            message.UserEmail == evt.UserEmail &&
+            message.OriginalVideoName == evt.OriginalVideoName &&
+            message.ProcessedVideoUrl == "https://storage.local/processed.zip")))
             .Returns(Task.CompletedTask);
 
         var worker = new TestableVideoProcessingWorker(
@@ -48,6 +59,7 @@ public class VideoProcessingWorkerTests
 
         consumer.Verify(x => x.Subscribe<VideoUploadedEvent>("video-uploaded", It.IsAny<Func<VideoUploadedEvent, Task>>()), Times.Once);
         handler.Verify(x => x.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object, default), Times.Once);
+        consumer.Verify(x => x.PublishAsync("video-processed", It.IsAny<VideoProcessedEvent>()), Times.Once);
     }
 
     private sealed class TestableVideoProcessingWorker : global::VideoProcessorWorker.VideoProcessingWorker
