@@ -34,7 +34,16 @@ namespace VideoProcessorWorker
                 "video-uploaded",
                 async evt =>
                 {
-                    await _handler.HandleAsync(evt, _videoProcessingGateway, _storage, _frameExtractor);
+                    string zipUrl = await _handler.HandleAsync(evt, _videoProcessingGateway, _storage, _frameExtractor);
+                    await _consumer.PublishAsync("video-processed", new VideoProcessedEvent
+                    {
+                        VideoId = evt.VideoId,
+                        UserId = evt.UserId,
+                        UserEmail = evt.UserEmail,
+                        OriginalVideoName = evt.OriginalVideoName,
+                        ProcessedVideoUrl = zipUrl,
+                        ProcessedAt = DateTime.UtcNow
+                    });
                 });
 
             Console.WriteLine("VideoProcessingWorker iniciado e aguardando mensagens...");
