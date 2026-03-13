@@ -77,4 +77,53 @@ public class S3ObjectStorageServiceTests
 
         s3.VerifyAll();
     }
+
+    [Fact]
+    public void GetFileUrl_ShouldUseConfiguredServiceUrlBucketAndPath()
+    {
+        var s3 = new Mock<IAmazonS3>(MockBehavior.Strict);
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+ {
+ { "OBJ_STORAGE:BUCKET_NAME", "my-bucket" },
+ { "OBJ_STORAGE:SERVICE_URL", "https://minio.local" }
+ }).Build();
+
+        var svc = new S3ObjectStorageService(s3.Object, config);
+
+        var url = svc.GetFileUrl("videos/file.mp4");
+
+        Assert.Equal("https://minio.local/my-bucket/videos/file.mp4", url);
+    }
+
+    [Fact]
+    public void GetPresignedUrl_ShouldBuildExpectedRequest()
+    {
+        var s3 = new Mock<IAmazonS3>(MockBehavior.Strict);
+        GetPreSignedUrlRequest? captured = null;
+
+        s3.Setup(x => x.GetPreSignedURL(It.IsAny<GetPreSignedUrlRequest>()))
+            .Callback<GetPreSignedUrlRequest>(request => captured = request)
+            .Returns("https://signed.local/file");
+
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+ {
+ { "OBJ_STORAGE:BUCKET_NAME", "my-bucket" },
+ { "OBJ_STORAGE:SERVICE_URL", "https://minio.local" }
+ }).Build();
+
+        var svc = new S3ObjectStorageService(s3.Object, config);
+        var beforeCall = DateTime.UtcNow;
+
+        var url = svc.GetPresignedUrl("videos/file.mp4", 15);
+
+        var afterCall = DateTime.UtcNow;
+
+        Assert.Equal("https://signed.local/file", url);
+        Assert.NotNull(captured);
+        Assert.Equal("my-bucket", captured!.BucketName);
+        Assert.Equal("videos/file.mp4", captured.Key);
+        Assert.Equal(HttpVerb.GET, captured.Verb);
+        Assert.True(captured.Expires.HasValue);
+        Assert.InRange(captured.Expires.Value, beforeCall.AddMinutes(15).AddSeconds(-1), afterCall.AddMinutes(15).AddSeconds(1));
+    }
 }
