@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace Infra.Data.SqlServer
 {
@@ -6,39 +6,41 @@ namespace Infra.Data.SqlServer
     {
         public static bool EnsureDatabaseExists(string connectionString, string dbName)
         {
+            return EnsureDatabaseExists(connectionString, dbName, new DatabaseInitializerRuntime());
+        }
+
+        internal static bool EnsureDatabaseExists(string connectionString, string dbName, IDatabaseInitializerRuntime runtime)
+        {
             Console.WriteLine("Verificando existência da base de dados...");
 
             bool dbExists = false;
 
-            var builder = new SqlConnectionStringBuilder(connectionString)
-            {
-                InitialCatalog = "master",
-                CommandTimeout = 60
-            };
+            var builder = runtime.CreateConnectionStringBuilder(connectionString);
+            builder.InitialCatalog = "master";
+            builder.CommandTimeout = 60;
 
-            using (var connection = new SqlConnection(builder.ToString()))
+            using (var connection = runtime.CreateConnection(builder.ToString()))
             {
                 connection.Open();
 
                 using var checkCmd = connection.CreateCommand();
                 checkCmd.CommandText = @"
                     SELECT CASE 
-                        WHEN DB_ID('VideoProcessingDb') IS NULL THEN 0 
+                        WHEN DB_ID('VideoUploadDb') IS NULL THEN 0 
                         ELSE 1 
                     END";
 
-                dbExists = (int)checkCmd.ExecuteScalar() == 1;
+                dbExists = Convert.ToInt32(checkCmd.ExecuteScalar()) == 1;
 
                 if (!dbExists)
                 {
                     using var createCmd = connection.CreateCommand();
-                    createCmd.CommandText = "CREATE DATABASE VideoProcessingDb;";
+                    createCmd.CommandText = "CREATE DATABASE VideoUploadDb;";
                     createCmd.ExecuteNonQuery();
 
                     string assemblyDir = Path.GetDirectoryName(typeof(DatabaseInitializer).Assembly.Location)!;
                     string scriptPath = Path.Combine(assemblyDir, "schema.sql");
-                    string script = File.ReadAllText(scriptPath);
-                    var command = connection.CreateCommand();
+                    string script = runtime.ReadAllText(scriptPath);
 
                     var batches = script.Split(
                         new[] { "\r\nGO\r\n", "\nGO\n", "\rGO\r" },
@@ -48,7 +50,7 @@ namespace Infra.Data.SqlServer
                     {
                         if (!string.IsNullOrWhiteSpace(batch))
                         {
-                            var batchCommand = connection.CreateCommand();
+                            using var batchCommand = connection.CreateCommand();
                             batchCommand.CommandText = batch;
                             batchCommand.ExecuteNonQuery();
                         }

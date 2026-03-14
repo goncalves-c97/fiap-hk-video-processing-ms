@@ -3,13 +3,13 @@ name: Terraform Apply
 on:
   workflow_dispatch:
     inputs:
-      confirm_destroy:
+      confirm_apply:
         description: "Type APPLY to confirm"
         required: true
 
 jobs:
-  destroy-prod:
-    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm_destroy == 'APPLY'
+  apply-prod:
+    if: github.ref == 'refs/heads/main' && github.event.inputs.confirm_apply == 'APPLY'
     runs-on: ubuntu-latest
     
     defaults:

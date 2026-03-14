@@ -1,18 +1,23 @@
-variable "db_password" {
-  description = "A senha para o usuário mestre do banco de dados."
-  type        = string
-  sensitive   = true
-  default     = "1q2w3e4r5t"
-}
-
 variable "preferred_region" {
-  description = "A região AWS preferida para a criação dos recursos."
+  description = "A regiao AWS preferida para a criacao dos recursos."
   type        = string
   default     = "us-east-1"
 }
 
 variable "aws_profile" {
-  description = "Optional named AWS CLI profile to use for credentials. Leave null to use default environment credentials."
+  description = "Perfil opcional da AWS CLI. Se null, usa credenciais do ambiente."
   type        = string
   default     = null
+}
+
+variable "infra_state_bucket" {
+  description = "Bucket S3 onde fica o terraform.tfstate da stack compartilhada."
+  type        = string
+  default     = "fiap-terraform-backend-infra-tf"
+}
+
+variable "infra_state_key" {
+  description = "Chave do terraform.tfstate da stack compartilhada."
+  type        = string
+  default     = "hk/infra/terraform.tfstate"
 }
