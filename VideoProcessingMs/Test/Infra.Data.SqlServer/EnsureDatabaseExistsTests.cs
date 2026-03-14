@@ -5,7 +5,7 @@ namespace Test.Infra.Data.SqlServer
 {
     public class EnsureDatabaseExistsTests
     {
-        private const string DbName = "VideoProcessingDb";
+        private const string DbName = "VideoUploadDb";
 
         [Fact]
         public void EnsureDatabaseExists_WhenConnectionStringInvalid_Throws()
@@ -58,7 +58,7 @@ namespace Test.Infra.Data.SqlServer
                 {
                     conn.Open();
                     using var cmd = conn.CreateCommand();
-                    cmd.CommandText = "IF DB_ID('VideoProcessingDb') IS NULL CREATE DATABASE VideoProcessingDb;";
+                    cmd.CommandText = "IF DB_ID('VideoUploadDb') IS NULL CREATE DATABASE VideoUploadDb;";
                     cmd.ExecuteNonQuery();
                 }
 
