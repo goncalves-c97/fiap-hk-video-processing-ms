@@ -52,12 +52,12 @@ namespace Core.Handlers
                 var zipPath = $"{video.Guid}-processed/{video.Guid}.zip";
 
                 // Upload do ZIP
-                await objectStorageService.UploadAsync(
+                string fullZipPath = await objectStorageService.UploadAsync(
                     zipStream,
                     zipPath,
                     "application/zip");
 
-                string zipUrl = objectStorageService.GetPresignedUrl(zipPath);
+                string zipUrl = objectStorageService.GetPresignedUrl(fullZipPath);
 
                 Console.WriteLine("ZIP criado e enviado para o storage. Atualizando status para Completed...");
 

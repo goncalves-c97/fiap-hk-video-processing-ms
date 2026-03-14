@@ -17,6 +17,7 @@ public class VideoProcessingHandlerTests
         var evt = CreateEvent();
         var video = CreateVideoUpload(evt);
         var expectedZipPath = $"{video.Guid}-processed/{video.Guid}.zip";
+        var expectedFullZipPath = $"videos/{expectedZipPath}";
         var expectedZipUrl = $"https://storage.local/{video.Guid}.zip";
         var statusSnapshots = new List<(StatusVideoEnum Status, DateTime? StartedAt, DateTime? FinishedAt, string? ZipPath, string? ErrorMessage, int Attempts)>();
         var gateway = new Mock<IVideoProcessingGateway>(MockBehavior.Strict);
@@ -33,8 +34,8 @@ public class VideoProcessingHandlerTests
         storage.Setup(x => x.DownloadAsync(evt.StoragePath)).ReturnsAsync(inputStream);
         frameExtractor.Setup(x => x.ExtractFramesAsync(inputStream, video.Guid, 2)).ReturnsAsync(zipStream);
         storage.Setup(x => x.UploadAsync(zipStream, expectedZipPath, "application/zip"))
-            .ReturnsAsync("uploaded");
-        storage.Setup(x => x.GetPresignedUrl(expectedZipPath, 60)).Returns(expectedZipUrl);
+            .ReturnsAsync(expectedFullZipPath);
+        storage.Setup(x => x.GetPresignedUrl(expectedFullZipPath, 60)).Returns(expectedZipUrl);
 
         var zipUrl = await handler.HandleAsync(evt, gateway.Object, storage.Object, frameExtractor.Object);
 
@@ -66,7 +67,7 @@ public class VideoProcessingHandlerTests
         storage.Verify(x => x.DownloadAsync(evt.StoragePath), Times.Once);
         frameExtractor.Verify(x => x.ExtractFramesAsync(inputStream, video.Guid, 2), Times.Once);
         storage.Verify(x => x.UploadAsync(zipStream, expectedZipPath, "application/zip"), Times.Once);
-        storage.Verify(x => x.GetPresignedUrl(expectedZipPath, 60), Times.Once);
+        storage.Verify(x => x.GetPresignedUrl(expectedFullZipPath, 60), Times.Once);
     }
 
     [Fact]

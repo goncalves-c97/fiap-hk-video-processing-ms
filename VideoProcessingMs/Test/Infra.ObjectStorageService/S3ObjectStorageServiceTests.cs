@@ -90,7 +90,7 @@ public class S3ObjectStorageServiceTests
 
         var svc = new S3ObjectStorageService(s3.Object, config);
 
-        var url = svc.GetFileUrl("videos/file.mp4");
+        var url = svc.GetFileUrl("file.mp4");
 
         Assert.Equal("https://minio.local/my-bucket/videos/file.mp4", url);
     }
