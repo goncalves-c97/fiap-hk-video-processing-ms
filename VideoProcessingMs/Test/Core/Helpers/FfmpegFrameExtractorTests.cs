@@ -1,6 +1,7 @@
 using Core.Helpers;
 using Core.Interfaces;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 
 namespace Test.Core.Helpers;
 
@@ -16,7 +17,7 @@ public class FfmpegFrameExtractorTests : IDisposable
         var pathProvider = new TestFrameExtractionPathProvider(_tempRoot);
         var runner = new FakeFfmpegProcessRunner((executablePath, arguments) =>
         {
-            Assert.Equal(@"C:\ffmpeg\bin\ffmpeg.exe", executablePath);
+            Assert.Equal("custom-ffmpeg", executablePath);
             Assert.Contains($"-vf fps=2", arguments);
             Assert.Contains(pathProvider.GetTempVideoPath(videoGuid), arguments);
 
@@ -30,7 +31,7 @@ public class FfmpegFrameExtractorTests : IDisposable
             };
         });
 
-        var extractor = new FfmpegFrameExtractor(runner, pathProvider);
+        var extractor = new FfmpegFrameExtractor(runner, pathProvider, "custom-ffmpeg");
         await using var sourceVideo = new MemoryStream(new byte[] { 1, 2, 3, 4 });
 
         await using var zipStream = await extractor.ExtractFramesAsync(sourceVideo, videoGuid, 2);
@@ -55,7 +56,7 @@ public class FfmpegFrameExtractorTests : IDisposable
             ErrorOutput = "simulated failure"
         });
 
-        var extractor = new FfmpegFrameExtractor(runner, pathProvider);
+        var extractor = new FfmpegFrameExtractor(runner, pathProvider, "custom-ffmpeg");
         await using var sourceVideo = new MemoryStream(new byte[] { 9, 8, 7 });
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
@@ -64,6 +65,80 @@ public class FfmpegFrameExtractorTests : IDisposable
         Assert.Equal("FFmpeg error: simulated failure", exception.Message);
         Assert.True(File.Exists(pathProvider.GetTempVideoPath(videoGuid)));
         Assert.False(File.Exists(pathProvider.GetZipPath(videoGuid)));
+    }
+
+    [Fact]
+    public async Task ExtractFramesAsync_WhenEnvironmentVariableIsSet_ShouldUseConfiguredFfmpegPath()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var previousValue = Environment.GetEnvironmentVariable("FFMPEG_PATH");
+        Environment.SetEnvironmentVariable("FFMPEG_PATH", "env-ffmpeg");
+
+        try
+        {
+            var videoGuid = Guid.NewGuid();
+            var pathProvider = new TestFrameExtractionPathProvider(_tempRoot);
+            var runner = new FakeFfmpegProcessRunner((executablePath, _) =>
+            {
+                Assert.Equal("env-ffmpeg", executablePath);
+
+                var framesDirectory = pathProvider.GetFramesDirectory(videoGuid);
+                Directory.CreateDirectory(framesDirectory);
+                File.WriteAllText(Path.Combine(framesDirectory, "frame_0001.png"), "frame-content");
+
+                return new FfmpegProcessResult { ExitCode = 0 };
+            });
+
+            var extractor = new FfmpegFrameExtractor(runner, pathProvider);
+            await using var sourceVideo = new MemoryStream(new byte[] { 1, 2, 3 });
+
+            await using var zipStream = await extractor.ExtractFramesAsync(sourceVideo, videoGuid, 1);
+
+            Assert.NotNull(zipStream);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FFMPEG_PATH", previousValue);
+        }
+    }
+
+    [Fact]
+    public async Task ExtractFramesAsync_WhenEnvironmentVariableIsMissing_ShouldUsePlatformDefaultPath()
+    {
+        Directory.CreateDirectory(_tempRoot);
+        var previousValue = Environment.GetEnvironmentVariable("FFMPEG_PATH");
+        Environment.SetEnvironmentVariable("FFMPEG_PATH", null);
+
+        try
+        {
+            var videoGuid = Guid.NewGuid();
+            var pathProvider = new TestFrameExtractionPathProvider(_tempRoot);
+            var expectedPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? @"C:\ffmpeg\bin\ffmpeg.exe"
+                : "ffmpeg";
+
+            var runner = new FakeFfmpegProcessRunner((executablePath, _) =>
+            {
+                Assert.Equal(expectedPath, executablePath);
+
+                var framesDirectory = pathProvider.GetFramesDirectory(videoGuid);
+                Directory.CreateDirectory(framesDirectory);
+                File.WriteAllText(Path.Combine(framesDirectory, "frame_0001.png"), "frame-content");
+
+                return new FfmpegProcessResult { ExitCode = 0 };
+            });
+
+            var extractor = new FfmpegFrameExtractor(runner, pathProvider);
+            await using var sourceVideo = new MemoryStream(new byte[] { 1, 2, 3 });
+
+            await using var zipStream = await extractor.ExtractFramesAsync(sourceVideo, videoGuid, 1);
+
+            Assert.NotNull(zipStream);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("FFMPEG_PATH", previousValue);
+        }
     }
 
     public void Dispose()

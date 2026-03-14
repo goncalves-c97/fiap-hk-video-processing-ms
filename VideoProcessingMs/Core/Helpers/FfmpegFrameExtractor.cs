@@ -1,23 +1,31 @@
 using Core.Interfaces;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 
 namespace Core.Helpers
 {
     public class FfmpegFrameExtractor : IFrameExtractor
     {
-        private const string FfmpegExecutablePath = @"C:\ffmpeg\bin\ffmpeg.exe";
+        private const string WindowsFfmpegExecutablePath = @"C:\ffmpeg\bin\ffmpeg.exe";
         private readonly IFfmpegProcessRunner _processRunner;
         private readonly IFrameExtractionPathProvider _pathProvider;
+        private readonly string _ffmpegExecutablePath;
 
         public FfmpegFrameExtractor()
-            : this(new ProcessFfmpegRunner(), new DefaultFrameExtractionPathProvider())
+            : this(new ProcessFfmpegRunner(), new DefaultFrameExtractionPathProvider(), ResolveFfmpegExecutablePath())
         {
         }
 
         public FfmpegFrameExtractor(IFfmpegProcessRunner processRunner, IFrameExtractionPathProvider pathProvider)
+            : this(processRunner, pathProvider, ResolveFfmpegExecutablePath())
+        {
+        }
+
+        public FfmpegFrameExtractor(IFfmpegProcessRunner processRunner, IFrameExtractionPathProvider pathProvider, string ffmpegExecutablePath)
         {
             _processRunner = processRunner;
             _pathProvider = pathProvider;
+            _ffmpegExecutablePath = ffmpegExecutablePath;
         }
 
         public async Task<Stream> ExtractFramesAsync(Stream videoStream, Guid videoGuid, int fps)
@@ -33,7 +41,7 @@ namespace Core.Helpers
             }
 
             var arguments = $"-i \"{tempVideoPath}\" -vf fps={fps} \"{framesDir}/frame_%04d.png\"";
-            var result = await _processRunner.ExecuteAsync(FfmpegExecutablePath, arguments);
+            var result = await _processRunner.ExecuteAsync(_ffmpegExecutablePath, arguments);
 
             if (result.ExitCode != 0)
             {
@@ -45,6 +53,19 @@ namespace Core.Helpers
             ZipFile.CreateFromDirectory(framesDir, zipPath);
 
             return File.OpenRead(zipPath);
+        }
+
+        private static string ResolveFfmpegExecutablePath()
+        {
+            var configuredPath = Environment.GetEnvironmentVariable("FFMPEG_PATH");
+            if (!string.IsNullOrWhiteSpace(configuredPath))
+            {
+                return configuredPath;
+            }
+
+            return RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? WindowsFfmpegExecutablePath
+                : "ffmpeg";
         }
     }
 }
