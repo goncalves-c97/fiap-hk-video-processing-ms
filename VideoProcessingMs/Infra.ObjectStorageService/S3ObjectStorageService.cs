@@ -1,4 +1,4 @@
-﻿using Amazon.S3;
+using Amazon.S3;
 using Amazon.S3.Model;
 using Core.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -53,7 +53,7 @@ namespace Infra.ObjectStorageService
 
         public string GetFileUrl(string path)
         {
-            return $"{_serviceUrl}/{_bucket}/{path}";
+            return $"{_serviceUrl}/{_bucket}/videos/{path}";
         }
 
         public string GetPresignedUrl(string path, int expirationMinutes = 60)
