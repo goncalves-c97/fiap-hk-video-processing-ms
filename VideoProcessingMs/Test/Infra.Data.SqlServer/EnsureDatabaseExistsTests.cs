@@ -1,4 +1,5 @@
-﻿using Infra.Data.SqlServer;
+using Infra.Data.SqlServer;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace Test.Infra.Data.SqlServer
@@ -10,7 +11,6 @@ namespace Test.Infra.Data.SqlServer
         [Fact]
         public void EnsureDatabaseExists_WhenConnectionStringInvalid_Throws()
         {
-            // invalid host makes SqlConnection.Open fail deterministically
             Assert.ThrowsAny<Exception>(() => DatabaseInitializer.EnsureDatabaseExists(
                 "Server=invalid-host;Database=master;User Id=sa;Password=bad;TrustServerCertificate=True;Connect Timeout=1;",
                 DbName));
@@ -27,17 +27,11 @@ namespace Test.Infra.Data.SqlServer
         [Fact]
         public void EnsureDatabaseExists_WhenSqlServerAvailable_CreatesDbAndReturnsFalseThenTrue()
         {
-            // Positive-path integration test.
-            // Provide a real connection string to a SQL Server instance via environment variable.
-            // Example: Server=localhost,1433;User Id=sa;Password=Your_password123;TrustServerCertificate=True;
             var cs = Environment.GetEnvironmentVariable("TEST_SQLSERVER_CONNECTION_STRING");
             if (string.IsNullOrWhiteSpace(cs))
-                return; // not configured => don't run (keeps test suite stable)
+                return;
 
-            // 1st run: should create DB if missing (returns false when it didn't exist)
             var existedBefore = DatabaseInitializer.EnsureDatabaseExists(cs!, DbName);
-
-            // 2nd run: now it must exist
             var existedAfter = DatabaseInitializer.EnsureDatabaseExists(cs!, DbName);
 
             Assert.False(existedBefore);
@@ -47,13 +41,10 @@ namespace Test.Infra.Data.SqlServer
         [Fact]
         public void EnsureDatabaseExists_WhenLocalDbAvailable_DbAlreadyExists_ReturnsTrue()
         {
-            // Optional but deterministic on developer machines/CI images that include LocalDB.
-            // This covers the "db already exists" path (`dbExists == true`) without needing external env config.
             var cs = "Server=(localdb)\\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=True;Connect Timeout=1;";
 
             try
             {
-                // Pre-create DB (ignore failures if it already exists)
                 using (var conn = new Microsoft.Data.SqlClient.SqlConnection(cs))
                 {
                     conn.Open();
@@ -67,8 +58,134 @@ namespace Test.Infra.Data.SqlServer
             }
             catch
             {
-                // LocalDB not installed/available => skip to keep suite stable.
                 return;
+            }
+        }
+
+        [Fact]
+        public void EnsureDatabaseExists_WhenDatabaseDoesNotExist_CreatesDatabaseAndExecutesSchemaBatches()
+        {
+            var runtime = new FakeDatabaseInitializerRuntime(0, "CREATE TABLE one;\nGO\n   \nGO\nCREATE TABLE two;");
+
+            var existed = DatabaseInitializer.EnsureDatabaseExists("Server=fake;Database=app;", DbName, runtime);
+
+            Assert.False(existed);
+            Assert.True(runtime.Connection.OpenCalled);
+            Assert.Equal("master", runtime.Builder.InitialCatalog);
+            Assert.Equal(60, runtime.Builder.CommandTimeout);
+            Assert.Equal(4, runtime.Connection.ExecutedCommands.Count);
+            Assert.Contains(runtime.Connection.ExecutedCommands, command => command.Contains("DB_ID('VideoUploadDb')"));
+            Assert.Contains("CREATE DATABASE VideoUploadDb;", runtime.Connection.ExecutedCommands);
+            Assert.Contains("CREATE TABLE one;", runtime.Connection.ExecutedCommands);
+            Assert.Contains("CREATE TABLE two;", runtime.Connection.ExecutedCommands);
+            Assert.NotNull(runtime.ReadPath);
+            Assert.EndsWith("schema.sql", runtime.ReadPath);
+        }
+
+        [Fact]
+        public void EnsureDatabaseExists_WhenDatabaseAlreadyExists_ReturnsTrueWithoutCreatingDatabase()
+        {
+            var runtime = new FakeDatabaseInitializerRuntime(1, "CREATE TABLE ignored;");
+
+            var existed = DatabaseInitializer.EnsureDatabaseExists("Server=fake;Database=app;", DbName, runtime);
+
+            Assert.True(existed);
+            Assert.True(runtime.Connection.OpenCalled);
+            Assert.Single(runtime.Connection.ExecutedCommands);
+            Assert.Contains("DB_ID('VideoUploadDb')", runtime.Connection.ExecutedCommands[0]);
+            Assert.Null(runtime.ReadPath);
+        }
+
+        private sealed class FakeDatabaseInitializerRuntime : IDatabaseInitializerRuntime
+        {
+            public FakeDatabaseInitializerRuntime(int scalarResult, string scriptContent)
+            {
+                Connection = new FakeDatabaseInitializerConnection(scalarResult);
+                ScriptContent = scriptContent;
+            }
+
+            public FakeDatabaseInitializerConnection Connection { get; }
+            public SqlConnectionStringBuilder Builder { get; private set; } = new();
+            public string ScriptContent { get; }
+            public string? ReadPath { get; private set; }
+
+            public SqlConnectionStringBuilder CreateConnectionStringBuilder(string connectionString)
+            {
+                Builder = new SqlConnectionStringBuilder(connectionString);
+                return Builder;
+            }
+
+            public IDatabaseInitializerConnection CreateConnection(string connectionString)
+            {
+                Connection.ConnectionString = connectionString;
+                return Connection;
+            }
+
+            public string ReadAllText(string path)
+            {
+                ReadPath = path;
+                return ScriptContent;
+            }
+        }
+
+        private sealed class FakeDatabaseInitializerConnection : IDatabaseInitializerConnection
+        {
+            private readonly int _scalarResult;
+            private bool _isFirstCommand = true;
+
+            public FakeDatabaseInitializerConnection(int scalarResult)
+            {
+                _scalarResult = scalarResult;
+            }
+
+            public string? ConnectionString { get; set; }
+            public bool OpenCalled { get; private set; }
+            public List<string> ExecutedCommands { get; } = new();
+
+            public void Open()
+            {
+                OpenCalled = true;
+            }
+
+            public IDatabaseInitializerCommand CreateCommand()
+            {
+                var command = new FakeDatabaseInitializerCommand(ExecutedCommands, _isFirstCommand ? _scalarResult : null);
+                _isFirstCommand = false;
+                return command;
+            }
+
+            public void Dispose()
+            {
+            }
+        }
+
+        private sealed class FakeDatabaseInitializerCommand : IDatabaseInitializerCommand
+        {
+            private readonly List<string> _executedCommands;
+            private readonly int? _scalarResult;
+
+            public FakeDatabaseInitializerCommand(List<string> executedCommands, int? scalarResult)
+            {
+                _executedCommands = executedCommands;
+                _scalarResult = scalarResult;
+            }
+
+            public string CommandText { get; set; } = string.Empty;
+
+            public object? ExecuteScalar()
+            {
+                _executedCommands.Add(CommandText);
+                return _scalarResult ?? 0;
+            }
+
+            public int ExecuteNonQuery()
+            {
+                _executedCommands.Add(CommandText);
+                return 1;
+            }
+
+            public void Dispose()
+            {
             }
         }
     }
